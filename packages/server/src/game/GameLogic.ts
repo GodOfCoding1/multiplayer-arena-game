@@ -18,9 +18,17 @@ import {
 
 const dt = TICK_INTERVAL_MS / 1000;
 
-export function processInput(state: GameState, playerId: string, input: PlayerInput): void {
+export interface AbilityEffect {
+  playerId: string;
+  alien: AlienType;
+  x: number;
+  y: number;
+  range: number;
+}
+
+export function processInput(state: GameState, playerId: string, input: PlayerInput): AbilityEffect | null {
   const player = state.players.get(playerId);
-  if (!player || !player.alive || player.stunned || state.phase !== 'playing') return;
+  if (!player || !player.alive || player.stunned || state.phase !== 'playing') return null;
 
   player.lastInputSeq = input.seq;
 
@@ -61,11 +69,23 @@ export function processInput(state: GameState, playerId: string, input: PlayerIn
 
   // Special ability
   if (input.specialFire) {
+    const prevCd = player.specialCooldownLeft;
     const result = handleSpecialAbility(player, allPlayers, input);
     if (result.projectile) {
       state.projectiles.set(result.projectile.id, result.projectile);
     }
+    if (prevCd <= 0 && player.specialCooldownLeft > 0) {
+      return {
+        playerId: player.id,
+        alien: player.alien as AlienType,
+        x: player.x,
+        y: player.y,
+        range: def.specialRange,
+      };
+    }
   }
+
+  return null;
 }
 
 export function tickGameState(state: GameState): Array<{ killerId: string; victimId: string }> {

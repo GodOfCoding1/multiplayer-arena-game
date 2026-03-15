@@ -1,19 +1,19 @@
-import { GameEngine } from './game/GameEngine.js';
-import { NetworkManager, type GameSnapshot } from './network/NetworkManager.js';
-import { LobbyUI } from './ui/Lobby.js';
-import { AlienSelectUI } from './ui/AlienSelect.js';
-import { HUD } from './ui/HUD.js';
-import { ResultsUI } from './ui/Results.js';
-import { ParticleEffects } from './utils/ParticleEffects.js';
-import { ALIEN_DEFINITIONS, type GamePhase } from '@ben10/shared';
+import { GameEngine } from "./game/GameEngine.js";
+import { NetworkManager, type GameSnapshot } from "./network/NetworkManager.js";
+import { LobbyUI } from "./ui/Lobby.js";
+import { AlienSelectUI } from "./ui/AlienSelect.js";
+import { HUD } from "./ui/HUD.js";
+import { ResultsUI } from "./ui/Results.js";
+import { ParticleEffects } from "./utils/ParticleEffects.js";
+import { ALIEN_DEFINITIONS, type GamePhase } from "@ben10/shared";
 
-const canvas = document.getElementById('game-canvas') as HTMLCanvasElement;
-const overlay = document.getElementById('ui-overlay') as HTMLDivElement;
+const canvas = document.getElementById("game-canvas") as HTMLCanvasElement;
+const overlay = document.getElementById("ui-overlay") as HTMLDivElement;
 
 const engine = new GameEngine(canvas);
 const particles = new ParticleEffects(engine.scene);
 
-const wsProtocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+const wsProtocol = location.protocol === "https:" ? "wss:" : "ws:";
 const serverUrl = `${wsProtocol}//${location.hostname}:2567`;
 const network = new NetworkManager(serverUrl);
 
@@ -22,28 +22,32 @@ const selectUI = new AlienSelectUI(overlay);
 const hud = new HUD(overlay);
 const resultsUI = new ResultsUI(overlay);
 
-let currentPhase: GamePhase = 'waiting';
-let localSessionId = '';
+let currentPhase: GamePhase = "waiting";
+let localSessionId = "";
 let latestSnapshot: GameSnapshot | null = null;
 
 lobbyUI.onCreateSession = async ({ name, sessionName, targetPlayers }) => {
   try {
-    lobbyUI.setStatus('Creating session...');
-    localSessionId = await network.createSession({ name, sessionName, targetPlayers });
+    lobbyUI.setStatus("Creating session...");
+    localSessionId = await network.createSession({
+      name,
+      sessionName,
+      targetPlayers,
+    });
     onConnectedToSession();
   } catch (err) {
-    console.error('Failed to create session:', err);
+    console.error("Failed to create session:", err);
     lobbyUI.setStatus(getErrorMessage(err), true);
   }
 };
 
 lobbyUI.onJoinSession = async ({ name, roomId }) => {
   try {
-    lobbyUI.setStatus('Joining session...');
+    lobbyUI.setStatus("Joining session...");
     localSessionId = await network.joinSessionById(roomId, { name });
     onConnectedToSession();
   } catch (err) {
-    console.error('Failed to join session:', err);
+    console.error("Failed to join session:", err);
     lobbyUI.setStatus(getErrorMessage(err), true);
   }
 };
@@ -60,7 +64,7 @@ selectUI.onReady = () => {
   network.sendReady();
 };
 
-network.on('stateChange', (snapshot: GameSnapshot) => {
+network.on("stateChange", (snapshot: GameSnapshot) => {
   latestSnapshot = snapshot;
   // Phase transitions
   if (snapshot.phase !== currentPhase) {
@@ -73,31 +77,31 @@ network.on('stateChange', (snapshot: GameSnapshot) => {
   engine.updateProjectiles(snapshot.projectiles);
 
   // Update HUD
-  if (snapshot.phase === 'playing') {
+  if (snapshot.phase === "playing") {
     const localPlayer = snapshot.players[localSessionId] || null;
     hud.update(localPlayer, snapshot.players, snapshot.roundTimer);
   }
 
   // Update select screen ready count
-  if (snapshot.phase === 'selecting') {
+  if (snapshot.phase === "selecting") {
     selectUI.updateReadyCount(snapshot.readyCount, snapshot.totalPlayers);
   }
 
   // Show results
-  if (snapshot.phase === 'finished') {
+  if (snapshot.phase === "finished") {
     resultsUI.showResults(snapshot.players, snapshot.winnerId);
   }
 
   updateForceStartControl(snapshot);
 });
 
-network.on('killFeed', (data: { killerId: string; victimId: string }) => {
+network.on("killFeed", (data: { killerId: string; victimId: string }) => {
   const snapshot = network.currentSnapshot;
   const killer = snapshot.players[data.killerId];
   const victim = snapshot.players[data.victimId];
 
   if (victim) {
-    const killerName = killer?.name || 'Unknown';
+    const killerName = killer?.name || "Unknown";
     const victimName = victim.name;
     hud.addKill(killerName, victimName);
 
@@ -107,9 +111,24 @@ network.on('killFeed', (data: { killerId: string; victimId: string }) => {
   }
 });
 
+network.on(
+  "abilityEffect",
+  (data: {
+    playerId: string;
+    alien: string;
+    x: number;
+    y: number;
+    range: number;
+  }) => {
+    if (data.alien === "heatblast") {
+      particles.spawnFireAoE(data.x, -data.y, data.range);
+    }
+  },
+);
+
 // Input sending
 engine.onInput = (input) => {
-  if (currentPhase === 'playing') {
+  if (currentPhase === "playing") {
     network.sendInput(input);
   }
 };
@@ -119,12 +138,11 @@ engine.onTick = (dt: number) => {
   particles.update(dt);
 };
 
-network.on('actionError', (message: string) => {
+network.on("actionError", (message: string) => {
   lobbyUI.setStatus(message, true);
 });
 
 function showPhaseUI(phase: GamePhase) {
-
   lobbyUI.hide();
   selectUI.hide();
   hud.hide();
@@ -132,16 +150,16 @@ function showPhaseUI(phase: GamePhase) {
   hideWaitingOverlay();
 
   switch (phase) {
-    case 'waiting':
+    case "waiting":
       showWaitingOverlay();
       break;
-    case 'selecting':
+    case "selecting":
       selectUI.show();
       break;
-    case 'playing':
+    case "playing":
       hud.show();
       break;
-    case 'finished':
+    case "finished":
       hud.show();
       break;
   }
@@ -155,8 +173,8 @@ function showWaitingOverlay() {
   const waitingSubText = `Auto-select starts at ${targetPlayers} players`;
 
   if (!waitingOverlay) {
-    waitingOverlay = document.createElement('div');
-    waitingOverlay.id = 'waiting-overlay';
+    waitingOverlay = document.createElement("div");
+    waitingOverlay.id = "waiting-overlay";
     waitingOverlay.innerHTML = `
       <div class="waiting-box">
         <div class="waiting-text">WAITING FOR PLAYERS...</div>
@@ -167,12 +185,14 @@ function showWaitingOverlay() {
     overlay.appendChild(waitingOverlay);
   }
 
-  const waitingSub = waitingOverlay.querySelector('.waiting-sub') as HTMLDivElement;
+  const waitingSub = waitingOverlay.querySelector(
+    ".waiting-sub",
+  ) as HTMLDivElement;
   waitingSub.textContent = waitingSubText;
 
-  if (document.getElementById('waiting-style')) return;
-  const style = document.createElement('style');
-  style.id = 'waiting-style';
+  if (document.getElementById("waiting-style")) return;
+  const style = document.createElement("style");
+  style.id = "waiting-style";
   style.textContent = `
     #waiting-overlay {
       display: flex;
@@ -207,13 +227,14 @@ function hideWaitingOverlay() {
   if (waitingOverlay) {
     waitingOverlay.remove();
     waitingOverlay = null;
-    document.getElementById('waiting-style')?.remove();
+    document.getElementById("waiting-style")?.remove();
   }
 }
 
 function updateForceStartControl(snapshot: GameSnapshot) {
   const isHost = snapshot.hostSessionId === localSessionId;
-  const canShow = isHost && (snapshot.phase === 'waiting' || snapshot.phase === 'selecting');
+  const canShow =
+    isHost && (snapshot.phase === "waiting" || snapshot.phase === "selecting");
 
   if (!canShow) {
     forceStartBtn?.remove();
@@ -222,14 +243,14 @@ function updateForceStartControl(snapshot: GameSnapshot) {
   }
 
   if (!forceStartBtn) {
-    forceStartBtn = document.createElement('button');
-    forceStartBtn.id = 'force-start-btn';
-    forceStartBtn.textContent = 'FORCE START';
-    forceStartBtn.addEventListener('click', () => network.requestStartGame());
+    forceStartBtn = document.createElement("button");
+    forceStartBtn.id = "force-start-btn";
+    forceStartBtn.textContent = "FORCE START";
+    forceStartBtn.addEventListener("click", () => network.requestStartGame());
     overlay.appendChild(forceStartBtn);
 
-    const style = document.createElement('style');
-    style.id = 'force-start-style';
+    const style = document.createElement("style");
+    style.id = "force-start-style";
     style.textContent = `
       #force-start-btn {
         position: absolute;
@@ -257,22 +278,24 @@ function onConnectedToSession() {
   engine.setLocalPlayer(localSessionId);
   engine.start();
   lobbyUI.hide();
-  showPhaseUI('waiting');
+  showPhaseUI("waiting");
 }
 
 async function refreshSessions() {
   const sessions = await network.listSessions();
   lobbyUI.setSessions(sessions);
-  lobbyUI.setStatus(`Found ${sessions.length} session${sessions.length === 1 ? '' : 's'}`);
+  lobbyUI.setStatus(
+    `Found ${sessions.length} session${sessions.length === 1 ? "" : "s"}`,
+  );
 }
 
 function getErrorMessage(err: unknown): string {
-  if (typeof err === 'string') return err;
-  if (err && typeof err === 'object') {
+  if (typeof err === "string") return err;
+  if (err && typeof err === "object") {
     const maybeMessage = (err as { message?: unknown }).message;
-    if (typeof maybeMessage === 'string') return maybeMessage;
+    if (typeof maybeMessage === "string") return maybeMessage;
   }
-  return 'Could not connect to server. Make sure the server is running on port 2567.';
+  return "Could not connect to server. Make sure the server is running on port 2567.";
 }
 
 void refreshSessions();

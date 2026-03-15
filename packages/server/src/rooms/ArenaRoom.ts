@@ -32,7 +32,10 @@ export class ArenaRoom extends Room<GameState> {
     this.updateRoomMetadata();
 
     this.onMessage(MessageType.PLAYER_INPUT, (client, input: PlayerInput) => {
-      processInput(this.state, client.sessionId, input);
+      const effect = processInput(this.state, client.sessionId, input);
+      if (effect) {
+        this.broadcast(MessageType.ABILITY_EFFECT, effect);
+      }
     });
 
     this.onMessage(MessageType.SELECT_ALIEN, (client, data: { alien: AlienType }) => {
