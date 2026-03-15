@@ -4,6 +4,8 @@ export class AlienSelectUI {
   private container: HTMLDivElement;
   private selectedAlien: AlienType = 'heatblast';
   private timerEl!: HTMLSpanElement;
+  private readyBtn!: HTMLButtonElement;
+  private isReady = false;
   onSelect: ((alien: AlienType) => void) | null = null;
   onReady: (() => void) | null = null;
 
@@ -22,7 +24,10 @@ export class AlienSelectUI {
       });
     });
 
-    this.container.querySelector('#ready-btn')!.addEventListener('click', () => {
+    this.readyBtn = this.container.querySelector('#ready-btn') as HTMLButtonElement;
+    this.readyBtn.addEventListener('click', () => {
+      if (this.isReady) return;
+      this.setReadyState(true);
       this.onReady?.();
     });
   }
@@ -67,7 +72,8 @@ export class AlienSelectUI {
   }
 
   updateReadyCount(ready: number, total: number) {
-    this.timerEl.textContent = `${ready} / ${total} players ready`;
+    const baseText = `${ready} / ${total} players ready`;
+    this.timerEl.textContent = this.isReady ? `${baseText} • You are ready` : baseText;
     this.timerEl.style.color = ready >= total ? '#00ff44' : '#ffffff';
   }
 
@@ -75,8 +81,20 @@ export class AlienSelectUI {
     // kept for compatibility
   }
 
-  show() { this.container.style.display = 'flex'; }
+  show() {
+    this.container.style.display = 'flex';
+    this.setReadyState(false);
+    this.timerEl.textContent = 'Pick an alien and click READY';
+    this.timerEl.style.color = '#00ff44';
+  }
   hide() { this.container.style.display = 'none'; }
+
+  private setReadyState(ready: boolean) {
+    this.isReady = ready;
+    this.readyBtn.disabled = ready;
+    this.readyBtn.textContent = ready ? 'READY!' : 'READY';
+    this.readyBtn.classList.toggle('is-ready', ready);
+  }
 
   private applyStyles() {
     const style = document.createElement('style');
@@ -195,10 +213,25 @@ export class AlienSelectUI {
         transition: all 0.2s;
         font-family: inherit;
       }
+      #ready-btn:disabled {
+        cursor: default;
+        opacity: 0.9;
+      }
+      #ready-btn.is-ready {
+        background: #1a8bff;
+        border-color: #1a8bff;
+        color: #fff;
+        box-shadow: 0 0 18px rgba(26, 139, 255, 0.45);
+      }
       #ready-btn:hover {
         background: #44ff88;
         box-shadow: 0 0 20px rgba(0,255,68,0.5);
         transform: scale(1.05);
+      }
+      #ready-btn.is-ready:hover {
+        background: #1a8bff;
+        box-shadow: 0 0 18px rgba(26, 139, 255, 0.45);
+        transform: none;
       }
     `;
     document.head.appendChild(style);
